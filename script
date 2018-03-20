@@ -1,0 +1,267 @@
+#!/bin/sh
+
+APP_NAME="ShadowsocksR-X"
+APP_DIR="/etc/$APP_NAME"
+
+DNSMASQ_RULE="/tmp/dnsmasq.d/00-$APP_NAME.conf"
+DNSMASQ_RULE_WHITE_LIST="$APP_DIR/config/white_list.conf"
+DNSMASQ_RULE_GFW_LIST="$APP_DIR/config/white_list.conf"
+DNS_PORT='1053'
+LOCAL_PORT='1090'
+FIREWALL_RULE_FILE="/etc/firewall.d/20-$APP_NAME"
+
+user_echo() { echo "<User-Echo>$@"; }
+
+install() {
+
+    mkdir -p $APP_DIR
+    cp ./$APP_NAME.conf $APP_DIR/$APP_NAME.conf
+    tar -xzf files.tgz -C  $APP_DIR
+
+    local arch
+    arch=$(opkg info libc| grep -F Architecture | awk '{print $2}')
+    case $arch in
+        mediatek|ralink|mtmips*)
+            rm $APP_DIR/bin/ssr-redir_arm $APP_DIR/bin/ssr-local_arm -f
+            mv $APP_DIR/bin/ssr-redir_mips $APP_DIR/bin/ssr-redir -f
+            mv $APP_DIR/bin/ssr-local_mips $APP_DIR/bin/ssr-local -f
+            ;;
+        ipq806x)
+            rm $APP_DIR/bin/ssr-redir_mips $APP_DIR/bin/ssr-local_mips -f
+            mv $APP_DIR/bin/ssr-redir_arm $APP_DIR/bin/ssr-redir -f
+            mv $APP_DIR/bin/ssr-local_arm $APP_DIR/bin/ssr-local -f            
+            ;;
+        *)
+            user_echo "Unsupported Architecture: $arch"
+            return 1
+            ;;
+    esac
+
+    chmod +x $APP_DIR/bin/*
+    gen_config
+    cat > /etc/init.d/$APP_NAME <<EOF
+#!/bin/sh /etc/rc.common
+START=98
+start() {
+    (. /etc/market/$APP_NAME.script && start)
+}
+EOF
+    chmod +x /etc/init.d/$APP_NAME
+    /etc/init.d/$APP_NAME enable
+    
+    start
+    return 0
+}
+
+uninstall() {
+
+    stop
+    /etc/init.d/$APP_NAME disable
+    rm -rf $APP_DIR
+    rm -rf $FIREWALL_RULE_FILE
+    return 0
+}
+
+start() {
+    
+    read_configs
+    $APP_DIR/bin/ssr-redir -c $APP_DIR/config/config.json -b 0.0.0.0 -f /var/run/$APP_NAME-redir.pid
+    $APP_DIR/bin/ssr-local -c $APP_DIR/config/config.json -u -l $DNS_PORT -L 8.8.8.8:53 -f /var/run/$APP_NAME-local.pid
+
+    #reload firewall
+    chmod +x $FIREWALL_RULE_FILE
+    /etc/init.d/firewall restart    
+
+    #config dnsmasq
+    case $MODE in
+        GFW_list|foreign_ip)
+            cat $DNSMASQ_RULE_GFW_LIST $DNSMASQ_RULE_WHITE_LIST > $DNSMASQ_RULE
+            cat >> $DNSMASQ_RULE <<EOF
+
+ipset=/.transformer.hiwifi.com/hiwifi_ignore                                                                  
+server=/.transformer.hiwifi.com/114.114.114.114#53                                                            
+ipset=/.hicloud.hiwifi.com/hiwifi_ignore                                                                      
+server=/.hicloud.hiwifi.com/114.114.114.114#53                                                                
+ipset=/.app.hiwifi.com/hiwifi_ignore                                                                          
+server=/.app.hiwifi.com/114.114.114.114#53                                                                    
+ipset=/.user.hiwifi.com/hiwifi_ignore                                                                         
+server=/.user.hiwifi.com/114.114.114.114#53                                                                   
+ipset=/.open.hiwifi.com/hiwifi_ignore                                                                         
+server=/.open.hiwifi.com/114.114.114.114#53                                                                   
+ipset=/.r.hiwifi.com/hiwifi_ignore                                                                            
+server=/.r.hiwifi.com/114.114.114.114#53                                                                      
+ipset=/.bbs.hiwifi.com/hiwifi_ignore                                                                          
+server=/.bbs.hiwifi.com/114.114.114.114#53                                                                    
+ipset=/.m.hiwifi.com/hiwifi_ignore                                                                            
+server=/.m.hiwifi.com/114.114.114.114#53                                                                      
+ipset=/.store.hiwifi.com/hiwifi_ignore                                                                        
+server=/.store.hiwifi.com/114.114.114.114#53                                                                  
+ipset=/.www.hiwifi.com/hiwifi_ignore                                                                          
+server=/.www.hiwifi.com/114.114.114.114#53                                                                    
+ipset=/.hiwifi.tw/hiwifi_ignore                                                                               
+server=/.hiwifi.tw/114.114.114.114#53 
+EOF
+            ;;
+        all)
+            cat > $DNSMASQ_RULE <<EOF
+
+no-resolv
+no-poll
+no-negcache
+max-ttl=10
+ipset=/.hiwifi.com/hiwifi_ignore
+server=/.hiwifi.com/114.114.114.114#53
+ipset=/.hiwifi.tw/hiwifi_ignore
+server=/.hiwifi.tw/114.114.114.114#53
+server=127.0.0.1#$DNS_PORT
+EOF
+            ;;
+    esac
+
+    #reload dnsmasq
+    /etc/init.d/dnsmasq reload
+    #wait firewall
+    sleep 2
+    return 0
+}
+
+stop() {
+    kill -2 $(pidof ssr-redir)
+    kill -2 $(pidof ssr-local)
+    sleep 1
+    killall -9 ssr-local ssr-local  &> /dev/null
+    rm -f /var/run/$APP_NAME-redir.pid
+    rm -f /var/run/$APP_NAME-local.pid
+    rm -f $DNSMASQ_RULE
+    /etc/init.d/dnsmasq reload
+    /etc/init.d/firewall restart
+    ipset -F hiwifi_ignore
+    ipset -X hiwifi_ignore
+    ipset -F gfw_list &>/dev/null
+    ipset -X gfw_list &>/dev/null
+    #wait firewall
+    sleep 2
+    return 0
+}
+
+restart() {
+	stop
+	start
+	return 0
+}
+
+status() {
+    local stat
+    stat="unknown"
+    local=$(pgrep ssr-local | wc -l)
+    redir=$(pgrep ssr-redir | wc -l)
+    if [ $local == '1' -a $redir == '1' ]; then
+        stat="running"
+    else
+        stat="stopped"
+    fi
+
+    echo "{ \"status\" : \"$stat\" }"
+    return 0
+}
+
+reconfigure() {
+    
+    cp ./$APP_NAME.conf $APP_DIR/$APP_NAME.conf
+    gen_config
+    restart
+    return 0
+}
+
+read_configs() {
+
+    source "$APP_DIR/$APP_NAME.conf"
+    SERVER_ADDR=$SERVERADDR
+    SERVER_PORT=$SERVERPORT
+    PASSWORD=$SERVERPASSWD
+    METHOD=$SERVERMETHOD
+    SERVER_PROTOCOL=$SERVERPROTOCOL
+    SERVER_PROTOCOL_PARAM=$SERVERPROTOCOLPARAM
+    SERVER_OBFS=$SERVEROBFS
+    SERVER_OBFS_PARAM=$SERVEROBFSPARAM
+    MODE=$PMODE
+    return 0
+}
+
+gen_config(){
+
+    read_configs
+   
+    #generate ssr config file
+    echo "{\"server\":\"$SERVER_ADDR\",\"server_port\":$SERVER_PORT,\"local_port\":$LOCAL_PORT,\"local_addr\":\"0.0.0.0\",\"password\":\"$PASSWORD\",\"timeout\":600,\"method\":\"$METHOD\",\"protocol\":\"$SERVER_PROTOCOL\",\"obfs\":\"$SERVER_OBFS\",\"protocol_param\":\"$SERVER_PROTOCOL_PARAM\",\"obfs_param\":\"$SERVER_OBFS_PARAM\"}" > $APP_DIR/config/config.json
+    
+    #generate firewall file
+    cat > $FIREWALL_RULE_FILE <<EOF
+#!/bin/sh
+! \`pidof ssr-redir >/dev/null\` && return
+! \`pidof ssr-local >/dev/null\` && return
+ipset -N hiwifi_ignore hash:ip
+iptables -t nat -N $APP_NAME
+iptables -t nat -Z $APP_NAME
+iptables -t nat -A $APP_NAME -m set --match-set local dst -j RETURN
+iptables -t nat -A $APP_NAME -m set --match-set  hiwifi_ignore dst -j RETURN
+#-------mode start---------#
+EOF
+
+    case $MODE in
+        GFW_list)
+            cat >> $FIREWALL_RULE_FILE <<EOF
+ipset -N gfw_list hash:ip
+#-------Telegram ip range---------#
+ipset add gfw_list 91.108.4.0/22
+ipset add gfw_list 91.108.8.0/21
+ipset add gfw_list 91.108.16.0/21
+ipset add gfw_list 91.108.36.0/23
+ipset add gfw_list 91.108.38.0/23
+ipset add gfw_list 91.108.56.0/22
+ipset add gfw_list 109.239.140.0/24
+ipset add gfw_list 149.154.160.0/20
+iptables -t nat -A $APP_NAME -p tcp  -j REDIRECT --to-port $LOCAL_PORT
+iptables -t nat -A PREROUTING -p tcp -m set --match-set gfw_list dst -j $APP_NAME
+EOF
+            ;;
+        foreign_ip)
+            cat >> $FIREWALL_RULE_FILE <<EOF
+iptables -t nat -A $APP_NAME -m set --match-set china dst -j RETURN
+iptables -t nat -A $APP_NAME -p tcp  -j REDIRECT --to-port $LOCAL_PORT
+iptables -t nat -I PREROUTING -p tcp -j $APP_NAME
+EOF
+            ;;
+        all)
+            cat >> $FIREWALL_RULE_FILE <<EOF
+iptables -t nat -A $APP_NAME -p tcp  -j REDIRECT --to-port $LOCAL_PORT
+iptables -t nat -I PREROUTING -p tcp -j $APP_NAME
+EOF
+            ;;
+    esac
+
+    #whitelist
+    : > $DNSMASQ_RULE_WHITE_LIST
+    if [ -f WHITELIST ]; then
+        local host ip
+        tr -d '\r' < WHITELIST > WHITELIST.tmp
+        grep -E '^([a-zA-Z0-9\-]+\.)+[a-zA-Z0-9]+$' WHITELIST.tmp | while read host; do
+            if [ x"${host##*hiwifi.com}" == x'' ]; then
+                continue
+            fi
+            if [ x"${host##*hiwifi.tw}" == x'' ]; then
+                continue
+            fi
+            echo "server=/.$host/127.0.0.1#$DNS_PORT" >> $DNSMASQ_RULE_WHITE_LIST
+            echo "ipset=/.$host/gfw_list" >> $DNSMASQ_RULE_WHITE_LIST
+        done
+
+        grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' WHITELIST.tmp | while read ip; do
+            echo "add gfw_list $ip" >> $FIREWALL_RULE_FILE
+        done
+
+        rm WHITELIST.tmp
+    fi
+
+    return 0
+}

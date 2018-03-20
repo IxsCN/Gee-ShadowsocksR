@@ -1,0 +1,93 @@
+{
+	"manifest_version": "2.0.0",
+	"supportgetappstatus": 1,
+	"requirements": {
+		"mode": "traditional",
+		"allow_uninstall": 1,
+		"visible": 1,
+		"support_refconfig": 1
+	},
+	"configuration": [{
+		"name": "服务器地址",
+		"type": "text",
+		"variable": "SERVERADDR",
+		"defaultvalue": "45.32.48.207",
+		"required": 1,
+		"description": ""
+	},
+	{
+		"name": "端口",
+		"type": "text",
+		"variable": "SERVERPORT",
+		"defaultvalue": "5962",
+		"required": 1,
+		"description": ""
+	},
+	{
+		"name": "密码",
+		"type": "text",
+		"variable": "SERVERPASSWD",
+		"defaultvalue": "ah1w$ErUBIO$8KeM2g",
+		"required": 1,
+		"description": ""
+	},
+	{
+		"name": "加密方式",
+		"type": "selection",
+		"variable": "SERVERMETHOD",
+		"choices": "none=none;aes-128-ctr=aes-128-ctr;aes-192-ctr=aes-192-ctr;aes-256-ctr=aes-256-ctr;aes-128-cfb=aes-128-cfb;aes-192-cfb=aes-192-cfb;aes-256-cfb=aes-256-cfb;rc4=rc4;rc4-md5=rc4-md5;rc4-md5-6=rc4-md5-6;aes-128-cfb8=aes-128-cfb8;aes-192-cfb8=aes-192-cfb8;aes-256-cfb8=aes-256-cfb8;salsa20=salsa20;chacha20=chacha20;xsalsa20=xsalsa20;xchacha20=xchacha20;chacha20-ietf=chacha20-ietf;",
+		"defaultvalue": "chacha20-ietf",
+		"required": 1,
+		"description": ""
+	},
+	{
+		"name": "协议",
+		"type": "selection",
+		"variable": "SERVERPROTOCOL",
+		"choices": "origin=origin;verify_deflate=verify_deflate;auth_sha1_v4=auth_sha1_v4;auth_aes128_md5=auth_aes128_md5;auth_aes128_sha1=auth_aes128_sha1;auth_chain_a=auth_chain_a;auth_chain_b=auth_chain_b;",
+		"defaultvalue": "auth_aes128_md5",
+		"required": 0,
+		"description": ""
+	},
+	{
+		"name": "协议参数",
+		"type": "text",
+		"variable": "SERVERPROTOCOLPARAM",
+		"required": 0,
+		"description": ""
+	},
+	{
+		"name": "模式",
+		"type": "selection",
+		"variable": "SERVEROBFS",
+		"choices": "plain=plain;http_simple=http_simple;http_post=http_post;random_head=random_head;tls1.2_ticket_auth=tls1.2_ticket_auth;tls1.2_ticket_fastauth=tls1.2_ticket_fastauth;",
+		"defaultvalue": "http_simple",
+		"required": 0,
+		"description": ""
+	},
+	{
+		"name": "混淆参数",
+		"type": "text",
+		"variable": "SERVEROBFSPARAM",
+		"required": 0,
+		"description": ""
+	},		
+  {
+		"name": "代理模式",
+		"type": "selection",
+		"variable": "PMODE",
+		"choices": "仅代理被墙网站=GFW_list;代理所有国外IP=foreign_ip;全局代理=all",
+		"defaultvalue": "GFW_list",
+		"required": 1,
+		"description": "“仅代理被墙网站”GFWLIST中的域名都会被代理，“代理所有国外IP”ChnRoutes中的ip段都不会被代理,，“全局模式”下所有流量都会被代理"
+	},
+  {
+		"name": "白名单",
+		"type": "txtfile",
+		"variable": "WHITELIST",
+		"defaultvalue": "okex.com\r\nbig.one\r\nhuobi.pro",
+		"required": 0,
+		"description": "每行一个域名或ip"
+	}
+]
+}
