@@ -5,7 +5,7 @@ APP_DIR="/etc/$APP_NAME"
 
 DNSMASQ_RULE="/tmp/dnsmasq.d/00-$APP_NAME.conf"
 DNSMASQ_RULE_WHITE_LIST="$APP_DIR/config/white_list.conf"
-DNSMASQ_RULE_GFW_LIST="$APP_DIR/config/white_list.conf"
+DNSMASQ_RULE_GFW_LIST="$APP_DIR/config/gfw_list.conf"
 DNS_PORT='1053'
 LOCAL_PORT='1090'
 FIREWALL_RULE_FILE="/etc/firewall.d/20-$APP_NAME"
