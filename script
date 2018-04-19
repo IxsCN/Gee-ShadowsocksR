@@ -75,32 +75,13 @@ start() {
     #config dnsmasq
     case $MODE in
         GFW_list|foreign_ip)
-            cat $DNSMASQ_RULE_GFW_LIST $DNSMASQ_RULE_WHITE_LIST > $DNSMASQ_RULE
-            cat >> $DNSMASQ_RULE <<EOF
-
-ipset=/.transformer.hiwifi.com/hiwifi_ignore                                                                  
-server=/.transformer.hiwifi.com/114.114.114.114#53                                                            
-ipset=/.hicloud.hiwifi.com/hiwifi_ignore                                                                      
-server=/.hicloud.hiwifi.com/114.114.114.114#53                                                                
-ipset=/.app.hiwifi.com/hiwifi_ignore                                                                          
-server=/.app.hiwifi.com/114.114.114.114#53                                                                    
-ipset=/.user.hiwifi.com/hiwifi_ignore                                                                         
-server=/.user.hiwifi.com/114.114.114.114#53                                                                   
-ipset=/.open.hiwifi.com/hiwifi_ignore                                                                         
-server=/.open.hiwifi.com/114.114.114.114#53                                                                   
-ipset=/.r.hiwifi.com/hiwifi_ignore                                                                            
-server=/.r.hiwifi.com/114.114.114.114#53                                                                      
-ipset=/.bbs.hiwifi.com/hiwifi_ignore                                                                          
-server=/.bbs.hiwifi.com/114.114.114.114#53                                                                    
-ipset=/.m.hiwifi.com/hiwifi_ignore                                                                            
-server=/.m.hiwifi.com/114.114.114.114#53                                                                      
-ipset=/.store.hiwifi.com/hiwifi_ignore                                                                        
-server=/.store.hiwifi.com/114.114.114.114#53                                                                  
-ipset=/.www.hiwifi.com/hiwifi_ignore                                                                          
-server=/.www.hiwifi.com/114.114.114.114#53                                                                    
-ipset=/.hiwifi.tw/hiwifi_ignore                                                                               
-server=/.hiwifi.tw/114.114.114.114#53 
+            cat > $DNSMASQ_RULE <<EOF
+ipset=/hiwifi.com/hiwifi_ignore                                                                          
+server=/hiwifi.com/114.114.114.114#53                                                                    
+ipset=/hiwifi.tw/hiwifi_ignore                                                                               
+server=/hiwifi.tw/114.114.114.114#53 
 EOF
+            cat $DNSMASQ_RULE_GFW_LIST $DNSMASQ_RULE_WHITE_LIST >> $DNSMASQ_RULE
             ;;
         all)
             cat > $DNSMASQ_RULE <<EOF
